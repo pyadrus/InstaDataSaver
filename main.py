@@ -1,6 +1,5 @@
 import math
 import re
-import sqlite3
 import time
 
 from bs4 import BeautifulSoup
@@ -8,18 +7,17 @@ from loguru import logger
 from selenium.webdriver.common.by import By
 from seleniumwire import webdriver
 
+from config import proxy_options
 from instagram_pars.authorization import authorization_instagram
+from services.database import database_for_instagram_posts
 
 logger.add("log/log.log")
 logger.info('Запуск скрипта')
-proxy_options = {
-    'proxy': {'http': 'http://PTUzxQ:0rTvyH@95.164.110.54:9128',
-              'https': 'http://PTUzxQ:0rTvyH@95.164.110.54:9128',
-              'no_proxy': 'localhost:127.0.0.1'}}
+
 browser = webdriver.Chrome(seleniumwire_options=proxy_options)  # Открываем браузер
 logger.info('Запуск браузера')
 
-authorization_instagram(browser) # Авторизация
+authorization_instagram(browser)  # Авторизация
 
 logger.info('Переходим на страницу профиля https://www.instagram.com/anji_kn/')
 browser.get("https://www.instagram.com/anji_kn/")
@@ -27,12 +25,9 @@ time.sleep(5)
 # Ищем элемент, содержащий количество публикаций
 posts = browser.find_element(By.CLASS_NAME, 'html-span')
 logger.info(f'Всего публикаций у пользователя: {posts.text}')
-# Подключаемся к базе данных SQLite
-conn = sqlite3.connect('instagram_posts.db')
-cursor = conn.cursor()
-# Создаем таблицу, если её нет
-cursor.execute('''CREATE TABLE IF NOT EXISTS posts (post_url)''')
-conn.commit()
+
+conn, cursor = database_for_instagram_posts() # База данных для постов
+
 number_of_posts = math.ceil(int(posts.text) / 10)  # Считаем количество прокручиваний 382/10 = 38,2 (40 пролистываний)
 logger.info(f'Колличество пролистываний страницы {number_of_posts}')
 for _ in range(number_of_posts):
@@ -45,7 +40,6 @@ for _ in range(number_of_posts):
     # Находим все элементы с классом x1i10hfl, которые представляют собой ссылки на посты
     post_links = soup.find_all('a', class_='x1i10hfl')
     for post_link in post_links:  # Собираем все ссылки на посты
-        logger.info(post_link['href'])
         # Используем два паттерна для поиска ссылок на посты и reels
         post_pattern = re.compile(r'/p/[\w\-]+/')
         reel_pattern = re.compile(r'/reel/[\w\-]+/')
