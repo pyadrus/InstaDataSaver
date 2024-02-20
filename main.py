@@ -1,14 +1,14 @@
 import math
+import re
 import sqlite3
 import time
-import re
+
 from bs4 import BeautifulSoup
 from loguru import logger
-from selenium.webdriver import Keys
 from selenium.webdriver.common.by import By
 from seleniumwire import webdriver
 
-from config import username, password
+from instagram_pars.authorization import authorization_instagram
 
 logger.add("log/log.log")
 logger.info('Запуск скрипта')
@@ -18,19 +18,9 @@ proxy_options = {
               'no_proxy': 'localhost:127.0.0.1'}}
 browser = webdriver.Chrome(seleniumwire_options=proxy_options)  # Открываем браузер
 logger.info('Запуск браузера')
-browser.get("https://www.instagram.com/accounts/login/")
-time.sleep(5)
-username_input = browser.find_element(By.XPATH, '//*[@id="loginForm"]/div/div[1]/div/label/input')
-username_input.clear()
-logger.info(f'Запуск ввода логина: {username}')
-username_input.send_keys(username)  # ввести логин
-time.sleep(5)  # таймер до сна
-password_input = browser.find_element(By.XPATH, '//*[@id="loginForm"]/div/div[2]/div/label/input')
-password_input.clear()
-logger.info(f'Запуск ввода пароля: {password}')
-password_input.send_keys(password)  # ввести пароль
-password_input.send_keys(Keys.ENTER)  # после ввода заходим куда захотим
-time.sleep(5)  # таймер до сна
+
+authorization_instagram(browser) # Авторизация
+
 logger.info('Переходим на страницу профиля https://www.instagram.com/anji_kn/')
 browser.get("https://www.instagram.com/anji_kn/")
 time.sleep(5)
@@ -56,11 +46,9 @@ for _ in range(number_of_posts):
     post_links = soup.find_all('a', class_='x1i10hfl')
     for post_link in post_links:  # Собираем все ссылки на посты
         logger.info(post_link['href'])
-
         # Используем два паттерна для поиска ссылок на посты и reels
         post_pattern = re.compile(r'/p/[\w\-]+/')
         reel_pattern = re.compile(r'/reel/[\w\-]+/')
-
         # Используем findall для поиска всех соответствующих ссылок
         post_links_found = post_pattern.findall(post_link['href'])
         reel_links_found = reel_pattern.findall(post_link['href'])
@@ -74,7 +62,6 @@ for _ in range(number_of_posts):
             logger.info(f'Reel: {reel_link_found}')
             reel_url = f"https://www.instagram.com{reel_link_found}"
             cursor.execute('INSERT INTO posts (post_url) VALUES (?)', (reel_url,))
-
         conn.commit()
 
 # После завершения парсинга и вставки данных
