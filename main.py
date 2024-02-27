@@ -2,21 +2,31 @@ import math
 import os
 import re
 import time
-
+import random  # Импортируем модуль random, чтобы генерировать случайное число
 import bs4
-import requests
 from bs4 import BeautifulSoup
 from loguru import logger
 from selenium.common import NoSuchElementException
 from selenium.webdriver.common.by import By
 from seleniumwire import webdriver
-
-from system.config import proxy_options
+from rich import print
+from rich.progress import track
 from instagram_pars.authorization import authorization_instagram
 from instagram_pars.download_video import download_from_instagram
 from services.database import database_for_instagram_posts, removing_duplicates_from_the_database
+from services.working_with_files import download_image
+from system.config import proxy_options
 
 logger.add("log/log.log")
+
+
+def display_progress_bar(time_1, time_2) -> None:
+    """Отображаем время в виде progress bar"""
+    # Генерируем случайное число в указанном диапазоне времени
+    selected_shift_time = random.randrange(time_1, time_2)
+    for _ in track(range(selected_shift_time),
+                   description=f"[red]Спим {selected_shift_time} секунды/секунд..."):
+        time.sleep(1)
 
 
 def initialize_driver() -> webdriver:
@@ -81,7 +91,7 @@ def main() -> None:
     elif user_input == "2":
 
         logger.info('Запуск скрипта по скачиванию постов')
-        post_url = 'https://www.instagram.com/p/CESBO8JltYb/'
+        post_url = 'https://www.instagram.com/p/C3aDV4RIpSj/'
         browser = initialize_driver()
         authorization_instagram(browser)  # Авторизация
         browser.get(post_url)  # Перейти на страницу поста
@@ -99,11 +109,12 @@ def main() -> None:
         img_src = ("/html/body/div[2]/div/div/div[2]/div/div/div[1]/div[1]/div[2]/section/main/div/div[1]/div/"
                    "div[1]/div/div/div/div/div/div[1]/div[2]/div/div/div/ul/li[3]/div/div/div/div/div[1]/img")
 
-        time.sleep(5)
+        # time.sleep(5)
+        display_progress_bar(time_1=4, time_2=5)  # Выводим прогресс бар для процесса режима ожидания
         try:
             browser.find_element(By.XPATH, video_src)
             logger.info('Видео')
-            download_from_instagram(post_url)
+            download_from_instagram(post_url, folder_path, f'{folder_name}.mp4')
         except NoSuchElementException:  # Если видео нет, то скачиваем картинку
 
             browser.find_element(By.XPATH, img_src)
@@ -129,8 +140,7 @@ def main() -> None:
                     download_image(post, folder_path, f'{folder_name}_next{i - 1}.jpg')
 
         logger.info("Выключение браузера через 200 сек.")
-        time.sleep(200)
-
+        display_progress_bar(time_1=180, time_2=200)  # Выводим прогресс бар для процесса режима ожидания
 
 def sanitize_folder_name(folder_name):
     """Преобразование названия папки"""
@@ -139,15 +149,6 @@ def sanitize_folder_name(folder_name):
         folder_name = folder_name.replace(char, '_')
     logger.info(f'Название папки {folder_name}')
     return folder_name
-
-
-def download_image(url, folder, filename) -> None:
-    """Скачивание изображения по ссылке"""
-    response = requests.get(url)
-    response.raise_for_status()
-    with open(os.path.join(folder, filename), 'wb') as file:
-        file.write(response.content)
-    logger.info(f"Image {filename} successfully downloaded.")
 
 
 if __name__ == '__main__':
