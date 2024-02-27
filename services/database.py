@@ -11,7 +11,7 @@ def database_for_instagram_posts():
     return conn, cursor
 
 
-def removing_duplicates_from_the_database(cursor, conn):
+def removing_duplicates_from_the_database(cursor, conn) -> None:
     """Удаление дубликатов с базы данных"""
     # После завершения парсинга и вставки данных
     # Шаг 1: Считать данные из базы данных

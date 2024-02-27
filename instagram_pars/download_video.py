@@ -7,6 +7,7 @@ logger.add("log/log.log")
 
 
 def download_media(url):
+    """Скачивание видео из инстаграма по ссылке"""
     response = requests.get(url)
     response.raise_for_status()
 
@@ -20,6 +21,7 @@ def download_media(url):
 
 
 def here_we_download(all_links):
+    """Cкачивание видео из инстаграма по ссылкам"""
     for media_link in all_links:
         download_media(media_link)
 

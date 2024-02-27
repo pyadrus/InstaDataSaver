@@ -1,4 +1,3 @@
-import json
 import math
 import os
 import re
@@ -19,14 +18,14 @@ from services.database import database_for_instagram_posts, removing_duplicates_
 logger.add("log/log.log")
 
 
-def initialize_driver():
+def initialize_driver() -> webdriver:
     """Инициализация браузера"""
     browser = webdriver.Chrome(seleniumwire_options=proxy_options)  # Открываем браузер
 
     return browser
 
 
-def download_video(video_url, folder_path, param):
+def download_video(video_url, folder_path, param) -> None:
     """Скачивание видео"""
     response = requests.get(video_url)
     response.raise_for_status()
@@ -35,7 +34,7 @@ def download_video(video_url, folder_path, param):
     logger.info(f"Video {param} successfully downloaded.")
 
 
-def main():
+def main() -> None:
     """Основная функция"""
     print('[1] - Парсинг постов со страницы\n'
           '[2] - Скачать посты со страницы')
@@ -56,7 +55,7 @@ def main():
         conn, cursor = database_for_instagram_posts()  # База данных для постов
         number_of_posts = math.ceil(
             int(posts.text) / 10)  # Считаем количество прокручиваний 382/10 = 38,2 (40 пролистываний)
-        logger.info(f'Колличество пролистываний страницы {number_of_posts}')
+        logger.info(f'Количество пролистываний страницы {number_of_posts}')
         for _ in range(number_of_posts):
             # Скроллим страницу вниз
             browser.execute_script("window.scrollBy(0, 920);")  # 920 - количество пикселей для прокрутки
@@ -104,8 +103,10 @@ def main():
             folder_path = f'downloaded_content/{folder_name}/'  # Проверяем наличие папки
             os.makedirs(folder_path, exist_ok=True)
 
-            video_src = '/html/body/div[2]/div/div/div[2]/div/div/div[1]/div[1]/div[2]/section/main/div/div[1]/div/div[1]/div/div/div/div/div/div/div/div/div/div/video'
-            img_src = "/html/body/div[2]/div/div/div[2]/div/div/div[1]/div[1]/div[2]/section/main/div/div[1]/div/div[1]/div/div/div/div/div/div[1]/div[2]/div/div/div/ul/li[3]/div/div/div/div/div[1]/img"
+            video_src = ('/html/body/div[2]/div/div/div[2]/div/div/div[1]/div[1]/div[2]/section/main/div/div[1]/div/'
+                         'div[1]/div/div/div/div/div/div/div/div/div/div/video')
+            img_src = ("/html/body/div[2]/div/div/div[2]/div/div/div[1]/div[1]/div[2]/section/main/div/div[1]/div/"
+                       "div[1]/div/div/div/div/div/div[1]/div[2]/div/div/div/ul/li[3]/div/div/div/div/div[1]/img")
 
             time.sleep(5)
 
@@ -127,9 +128,10 @@ def main():
                     if browser.find_elements(By.XPATH, button_xpath):
                         browser.find_element(By.XPATH, button_xpath).click()
                         time.sleep(2)
-                        post = browser.find_element(By.XPATH,
-                                                    '/html/body/div[2]/div/div/div[2]/div/div/div[1]/div[1]/div[2]/section/main/div/div[1]/div/div[1]/div/div/div/div/div/div[1]/div[2]/div/div/div/ul/li[3]/div/div/div/div/div[1]/img').get_attribute(
-                            'src')
+                        post = browser.find_element(By.XPATH, '/html/body/div[2]/div/div/div[2]/div/div/div[1]'
+                                                              '/div[1]/div[2]/section/main/div/div[1]/div/div[1]/div/'
+                                                              'div/div/div/div/div[1]/div[2]/div/div/div/ul/li[3]/div/'
+                                                              'div/div/div/div[1]/img').get_attribute('src')
                         time.sleep(3)
                         download_image(post, folder_path, f'{folder_name}_next{i - 1}.jpg')
 
@@ -140,15 +142,16 @@ def main():
 
 
 def sanitize_folder_name(folder_name):
-    # Заменяем недопустимые символы
-    invalid_chars = ['\\', '/', ':', '*', '?', '"', '<', '>', '|']
+    """Преобразование названия папки"""
+    invalid_chars = ['\\', '/', ':', '*', '?', '"', '<', '>', '|']  # Заменяем недопустимые символы
     for char in invalid_chars:
         folder_name = folder_name.replace(char, '_')
     logger.info(f'Название папки {folder_name}')
     return folder_name
 
 
-def download_image(url, folder, filename):
+def download_image(url, folder, filename) -> None:
+    """Скачивание изображения по ссылке"""
     response = requests.get(url)
     response.raise_for_status()
     with open(os.path.join(folder, filename), 'wb') as file:
