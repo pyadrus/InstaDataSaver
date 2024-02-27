@@ -6,18 +6,7 @@ from loguru import logger
 logger.add("log/log.log")
 
 
-def download_media(url):
-    """Скачивание видео из инстаграма по ссылке"""
-    response = requests.get(url)
-    response.raise_for_status()
 
-    filename = url.split("/")[-1].split("?")[0]
-    download_path = os.path.join("downloads", filename)
-    os.makedirs("downloads", exist_ok=True)
-
-    with open(download_path, "wb") as file:
-        file.write(response.content)
-    return os.path.join(os.getcwd(), download_path)
 
 
 def here_we_download(all_links):

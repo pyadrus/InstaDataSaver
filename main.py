@@ -7,10 +7,11 @@ import bs4
 import requests
 from bs4 import BeautifulSoup
 from loguru import logger
+from selenium.common import NoSuchElementException
 from selenium.webdriver.common.by import By
 from seleniumwire import webdriver
 
-from config import proxy_options
+from system.config import proxy_options
 from instagram_pars.authorization import authorization_instagram
 from instagram_pars.download_video import download_from_instagram
 from services.database import database_for_instagram_posts, removing_duplicates_from_the_database
@@ -23,15 +24,6 @@ def initialize_driver() -> webdriver:
     browser = webdriver.Chrome(seleniumwire_options=proxy_options)  # Открываем браузер
 
     return browser
-
-
-def download_video(video_url, folder_path, param) -> None:
-    """Скачивание видео"""
-    response = requests.get(video_url)
-    response.raise_for_status()
-    with open(folder_path + param, 'wb') as file:
-        file.write(response.content)
-    logger.info(f"Video {param} successfully downloaded.")
 
 
 def main() -> None:
@@ -88,55 +80,54 @@ def main() -> None:
 
     elif user_input == "2":
 
+        logger.info('Запуск скрипта по скачиванию постов')
+        post_url = 'https://www.instagram.com/p/CESBO8JltYb/'
+        browser = initialize_driver()
+        authorization_instagram(browser)  # Авторизация
+        browser.get(post_url)  # Перейти на страницу поста
+        time.sleep(2)
+        posts_data = browser.find_element(By.CLASS_NAME, '_aaqe')
+        date_value = posts_data.get_attribute("datetime")  # Получаем значение атрибута datetime
+        folder_name = sanitize_folder_name(date_value)  # Преобразовываем в формат для имени папки
+        logger.info(f'Дата публикации поста: {date_value}')  # Выводим значение даты
+        time.sleep(1)
+        folder_path = f'downloaded_content/{folder_name}/'  # Проверяем наличие папки
+        os.makedirs(folder_path, exist_ok=True)
+
+        video_src = ('/html/body/div[2]/div/div/div[2]/div/div/div[1]/div[1]/div[2]/section/main/div/div[1]/div/'
+                     'div[1]/div/div/div/div/div/div/div/div/div/div/video')
+        img_src = ("/html/body/div[2]/div/div/div[2]/div/div/div[1]/div[1]/div[2]/section/main/div/div[1]/div/"
+                   "div[1]/div/div/div/div/div/div[1]/div[2]/div/div/div/ul/li[3]/div/div/div/div/div[1]/img")
+
+        time.sleep(5)
         try:
-            logger.info('Запуск скрипта по скачиванию постов')
-            post_url = 'https://www.instagram.com/reel/CViP1F-obSu/'
-            browser = initialize_driver()
-            authorization_instagram(browser)  # Авторизация
-            browser.get(post_url)  # Перейти на страницу поста
-            time.sleep(2)
-            posts_data = browser.find_element(By.CLASS_NAME, '_aaqe')
-            date_value = posts_data.get_attribute("datetime")  # Получаем значение атрибута datetime
-            folder_name = sanitize_folder_name(date_value)  # Преобразовываем в формат для имени папки
-            logger.info(f'Дата публикации поста: {date_value}')  # Выводим значение даты
-            time.sleep(1)
-            folder_path = f'downloaded_content/{folder_name}/'  # Проверяем наличие папки
-            os.makedirs(folder_path, exist_ok=True)
+            browser.find_element(By.XPATH, video_src)
+            logger.info('Видео')
+            download_from_instagram(post_url)
+        except NoSuchElementException:  # Если видео нет, то скачиваем картинку
 
-            video_src = ('/html/body/div[2]/div/div/div[2]/div/div/div[1]/div[1]/div[2]/section/main/div/div[1]/div/'
-                         'div[1]/div/div/div/div/div/div/div/div/div/div/video')
-            img_src = ("/html/body/div[2]/div/div/div[2]/div/div/div[1]/div[1]/div[2]/section/main/div/div[1]/div/"
-                       "div[1]/div/div/div/div/div/div[1]/div[2]/div/div/div/ul/li[3]/div/div/div/div/div[1]/img")
+            browser.find_element(By.XPATH, img_src)
 
-            time.sleep(5)
+            logger.info('Изображение')
+            html = browser.page_source
+            soup = bs4.BeautifulSoup(html, 'lxml')
+            img_url = soup.select('._aagv  img')[0].get('src')
+            logger.info(img_url)
 
-            if browser.find_element(By.XPATH, video_src):
-                logger.info('Видео')
-                download_from_instagram(post_url)
-            elif browser.find_element(By.XPATH, img_src):
-                logger.info('Изображение')
+            download_image(url=img_url, folder=folder_path, filename=f'{folder_name}.jpg')
 
-                html = browser.page_source
-                soup = bs4.BeautifulSoup(html, 'lxml')
-                img_url = soup.select('._aagv  img')[0].get('src')
-                logger.info(img_url)
+            for i in range(1, 4):  # Download next two images
+                button_xpath = "//button[@aria-label='Далее']"
+                if browser.find_elements(By.XPATH, button_xpath):
+                    browser.find_element(By.XPATH, button_xpath).click()
+                    time.sleep(2)
+                    post = browser.find_element(By.XPATH, '/html/body/div[2]/div/div/div[2]/div/div/div[1]'
+                                                          '/div[1]/div[2]/section/main/div/div[1]/div/div[1]/div/'
+                                                          'div/div/div/div/div[1]/div[2]/div/div/div/ul/li[3]/div/'
+                                                          'div/div/div/div[1]/img').get_attribute('src')
+                    time.sleep(3)
+                    download_image(post, folder_path, f'{folder_name}_next{i - 1}.jpg')
 
-                download_image(url=img_url, folder=folder_path, filename=f'{folder_name}.jpg')
-
-                for i in range(1, 4):  # Download next two images
-                    button_xpath = "//button[@aria-label='Далее']"
-                    if browser.find_elements(By.XPATH, button_xpath):
-                        browser.find_element(By.XPATH, button_xpath).click()
-                        time.sleep(2)
-                        post = browser.find_element(By.XPATH, '/html/body/div[2]/div/div/div[2]/div/div/div[1]'
-                                                              '/div[1]/div[2]/section/main/div/div[1]/div/div[1]/div/'
-                                                              'div/div/div/div/div[1]/div[2]/div/div/div/ul/li[3]/div/'
-                                                              'div/div/div/div[1]/img').get_attribute('src')
-                        time.sleep(3)
-                        download_image(post, folder_path, f'{folder_name}_next{i - 1}.jpg')
-
-        except Exception as e:
-            logger.error(e)
         logger.info("Выключение браузера через 200 сек.")
         time.sleep(200)
 
