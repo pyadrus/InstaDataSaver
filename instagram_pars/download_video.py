@@ -1,12 +1,11 @@
 import json
-import os
+
 import requests
 from loguru import logger
 
+from services.working_with_files import download_media
+
 logger.add("log/log.log")
-
-
-
 
 
 def here_we_download(all_links):
